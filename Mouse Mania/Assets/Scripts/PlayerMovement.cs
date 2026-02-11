@@ -39,6 +39,9 @@ public class PlayerMovement : MonoBehaviour
 	public float LastOnWallRightTime { get; private set; }
 	public float LastOnWallLeftTime { get; private set; }
 
+	public Animator animator;
+    // public float horizontalMovement;
+
 	//Jump
 	private bool _isJumpCut;
 	private bool _isJumpFalling;
@@ -227,6 +230,12 @@ public class PlayerMovement : MonoBehaviour
 		else
 			IsSliding = false;
 		#endregion
+
+		// ANIMATION
+		bool isMoving =
+			Mathf.Abs(RB.linearVelocity.x) > 0.1f &&
+    		!IsDashing;
+		animator.SetBool("IsMoving", isMoving);
 
 		#region GRAVITY
 		if (!_isDashAttacking)
