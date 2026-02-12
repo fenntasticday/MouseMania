@@ -78,6 +78,10 @@ public class PlayerMovement : MonoBehaviour
     #endregion
 
 	private bool _ignoreWall;
+	bool isEmitting;
+	public TrailRenderer dashRenderer;
+	// public AudioClip soundEffectClip;
+    public AudioSource audioSource;
 
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
@@ -93,6 +97,7 @@ public class PlayerMovement : MonoBehaviour
 	{
 		SetGravityScale(Data.gravityScale);
 		IsFacingRight = true;
+		dashRenderer.emitting = false;
 	}
 
 	private void Update()
@@ -124,7 +129,7 @@ public class PlayerMovement : MonoBehaviour
 			OnJumpUpInput();
 		}
 
-		if (Input.GetKeyDown(KeyCode.LeftShift) || Input.GetMouseButtonDown(1))
+		if (Input.GetMouseButtonDown(1))
 		{
 			OnDashInput();
 		}
@@ -242,6 +247,7 @@ public class PlayerMovement : MonoBehaviour
 		bool isOnWall = LastOnWallTime > 0 && LastOnGroundTime <= 0;
 		animator.SetBool("IsWall", isOnWall);
 
+		
 		animator.SetBool("IsDash", IsDashing);
 
 		#region GRAVITY
@@ -486,6 +492,12 @@ public class PlayerMovement : MonoBehaviour
 	//Dash Coroutine
 	private IEnumerator StartDash(Vector2 dir)
 	{
+		dashRenderer.emitting = true;
+		if (audioSource != null)
+        {
+            // The second parameter is the volume scale (1.0f is default)
+            audioSource.Play();
+        }
 		//Overall this method of dashing aims to mimic Celeste, if you're looking for
 		// a more physics-based approach try a method similar to that used in the jump
 
@@ -523,6 +535,7 @@ public class PlayerMovement : MonoBehaviour
 
 		//Dash over
 		IsDashing = false;
+		dashRenderer.emitting = false;
 	}
 
 	//Short period before the player is able to dash again
