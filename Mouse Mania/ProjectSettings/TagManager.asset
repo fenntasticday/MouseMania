@@ -66,5 +66,8 @@ TagManager:
   - name: Clouds
     uniqueID: 969204681
     locked: 0
+  - name: frontc
+    uniqueID: 3650831697
+    locked: 0
   m_RenderingLayers:
   - Default

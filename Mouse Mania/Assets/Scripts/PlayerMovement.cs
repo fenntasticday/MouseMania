@@ -237,6 +237,11 @@ public class PlayerMovement : MonoBehaviour
     		!IsDashing;
 		animator.SetBool("IsMoving", isMoving);
 
+		bool isOnWall = LastOnWallTime > 0 && LastOnGroundTime <= 0;
+		animator.SetBool("IsWall", isOnWall);
+
+		animator.SetBool("IsDash", IsDashing);
+
 		#region GRAVITY
 		if (!_isDashAttacking)
 		{
