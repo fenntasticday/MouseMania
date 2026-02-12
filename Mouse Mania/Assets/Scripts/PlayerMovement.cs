@@ -77,6 +77,8 @@ public class PlayerMovement : MonoBehaviour
 	[SerializeField] private Vector2 _wallCheckSize = new Vector2(0.5f, 1f);
     #endregion
 
+	private bool _ignoreWall;
+
     #region LAYERS & TAGS
     [Header("Layers & Tags")]
 	[SerializeField] private LayerMask _groundLayer;
@@ -112,17 +114,17 @@ public class PlayerMovement : MonoBehaviour
 		if (_moveInput.x != 0)
 			CheckDirectionToFace(_moveInput.x > 0);
 
-		if(Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.C) || Input.GetKeyDown(KeyCode.J))
+		if(Input.GetMouseButtonDown(0))
         {
 			OnJumpInput();
         }
 
-		if (Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.C) || Input.GetKeyUp(KeyCode.J))
+		if (Input.GetMouseButtonDown(0))
 		{
 			OnJumpUpInput();
 		}
 
-		if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.LeftShift) || Input.GetKeyDown(KeyCode.K))
+		if (Input.GetKeyDown(KeyCode.LeftShift) || Input.GetMouseButtonDown(1))
 		{
 			OnDashInput();
 		}
@@ -139,12 +141,12 @@ public class PlayerMovement : MonoBehaviour
 
 			//Right Wall Check
 			if (((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)
-					|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && !IsFacingRight)) && !IsWallJumping && LastOnGroundTime <= 0)
+					|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && !IsFacingRight)) && !IsWallJumping && LastOnGroundTime <= 0 && !_ignoreWall)
 				LastOnWallRightTime = Data.coyoteTime;
 
 			//Right Wall Check
 			if (((Physics2D.OverlapBox(_frontWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && !IsFacingRight)
-				|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)) && !IsWallJumping && LastOnGroundTime <= 0)
+				|| (Physics2D.OverlapBox(_backWallCheckPoint.position, _wallCheckSize, 0, _groundLayer) && IsFacingRight)) && !IsWallJumping && LastOnGroundTime <= 0 && !_ignoreWall)
 				LastOnWallLeftTime = Data.coyoteTime;
 
 			//Two checks needed for both left and right walls since whenever the play turns the wall checkPoints swap sides
@@ -248,7 +250,11 @@ public class PlayerMovement : MonoBehaviour
 			//Higher gravity if we've released the jump input or are falling
 			if (IsSliding)
 			{
-				SetGravityScale(0);
+				SetGravityScale(Data.gravityScale * 0.7f);
+
+				// Prevent climbing up walls
+				// if (RB.linearVelocity.y > 0)
+				// 	RB.linearVelocity = new Vector2(RB.linearVelocity.x, 0);
 			}
 			else if (RB.linearVelocity.y < 0 && _moveInput.y < 0)
 			{
@@ -294,9 +300,18 @@ public class PlayerMovement : MonoBehaviour
 		if (!IsDashing)
 		{
 			if (IsWallJumping)
+			{
 				Run(Data.wallJumpRunLerp);
+			}
+			else if (LastOnWallTime > 0 && LastOnGroundTime <= 0)
+			{
+				// Disable horizontal movement while on wall
+				Run(0);
+			}
 			else
+			{
 				Run(1);
+			}
 		}
 		else if (_isDashAttacking)
 		{
@@ -455,9 +470,17 @@ public class PlayerMovement : MonoBehaviour
 		//Unlike in the run we want to use the Impulse mode.
 		//The default mode will apply are force instantly ignoring masss
 		RB.AddForce(force, ForceMode2D.Impulse);
+		// StartCoroutine(IgnoreWallRoutine());
 		#endregion
 	}
-	#endregion
+
+	private IEnumerator IgnoreWallRoutine()
+	{
+		_ignoreWall = true;
+		yield return new WaitForSeconds(0.15f); // tweak between 0.1–0.2
+		_ignoreWall = false;
+	}
+		#endregion
 
 	#region DASH METHODS
 	//Dash Coroutine
@@ -518,13 +541,28 @@ public class PlayerMovement : MonoBehaviour
 	{
 		//Works the same as the Run but only in the y-axis
 		//THis seems to work fine, buit maybe you'll find a better way to implement a slide into this system
-		float speedDif = Data.slideSpeed - RB.linearVelocity.y;	
-		float movement = speedDif * Data.slideAccel;
-		//So, we clamp the movement here to prevent any over corrections (these aren't noticeable in the Run)
-		//The force applied can't be greater than the (negative) speedDifference * by how many times a second FixedUpdate() is called. For more info research how force are applied to rigidbodies.
-		movement = Mathf.Clamp(movement, -Mathf.Abs(speedDif)  * (1 / Time.fixedDeltaTime), Mathf.Abs(speedDif) * (1 / Time.fixedDeltaTime));
+		// float speedDif = Data.slideSpeed - RB.linearVelocity.y;	
+		// float movement = speedDif * Data.slideAccel;
+		// //So, we clamp the movement here to prevent any over corrections (these aren't noticeable in the Run)
+		// //The force applied can't be greater than the (negative) speedDifference * by how many times a second FixedUpdate() is called. For more info research how force are applied to rigidbodies.
+		// movement = Mathf.Clamp(movement, -Mathf.Abs(speedDif)  * (1 / Time.fixedDeltaTime), Mathf.Abs(speedDif) * (1 / Time.fixedDeltaTime));
 
-		RB.AddForce(movement * Vector2.up);
+		// RB.AddForce(movement * Vector2.up);
+		float targetSlideSpeed = -Data.slideSpeed;
+
+    	// If moving upward, softly resist it instead of killing it
+		if (RB.linearVelocity.y > 0)
+		{
+			RB.linearVelocity = new Vector2(
+				RB.linearVelocity.x,
+				RB.linearVelocity.y * 0.5f // reduce upward velocity instead of zeroing
+			);
+		}
+
+		float speedDif = targetSlideSpeed - RB.linearVelocity.y;
+		float movement = speedDif * Data.slideAccel;
+
+		RB.AddForce(movement * Vector2.up, ForceMode2D.Force);
 	}
     #endregion
 
